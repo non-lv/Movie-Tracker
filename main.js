@@ -1,123 +1,123 @@
-const electron = require('electron');
-const url = require('url');
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 const mov = require('./resources/JS/db.js').movies;
 const movRet = require('./resources/JS/movieRetriever.js').getMovie;
 
-const { app, BrowserWindow, Menu, ipcMain } = electron;
-
-// SET EVN
+const isMac = process.platform ==='darwin';
+const isDev = process.env.NODE_ENV != 'production';
 // process.env.NODE_ENV = 'production';
 
-let mainWindow;
-
-// Listen for app to be ready
-app.on('ready', function () {
-    mov.sync();
-    // Create new window
-    mainWindow = new BrowserWindow({
+let win;
+function createWindow() {
+    win = new BrowserWindow({
         webPreferences: {
-            nodeIntegration: true
+            nodeIntegration: true,
+            preload: path.join(__dirname, './resources/JS/preload.js')
         },
         minWidth: 250,
         minHeight: 200,
-        frame: false
+        frame: true
     });
-    // Load html into window
-    mainWindow.loadURL(url.format({
-        pathname: path.join(__dirname, './resources/HTML/mainWindow.html'),
-        protocol: 'file:',
-        slashes: true
-    }));
-    //Quit app when closed
-    mainWindow.on('closed', function () {
-        app.quit();
-    });
-    //Load previous list
-    mainWindow.webContents.on('did-finish-load', () => {
-        loadMov();
-    });
-    // Build menu from template
-    const mainMenu = Menu.buildFromTemplate(mainMenuTemplate);
-    // Insert Menu
-    Menu.setApplicationMenu(mainMenu);
-});
+    win.loadFile(path.join(__dirname, './resources/HTML/mainWindow.html'));
 
-//Load previous movies into ui
-async function loadMov() {
-    const movies = await mov.findAll({ attributes: ['name', 'release_year', 'image'] });
-    // console.log(movies);
-    for (m of movies)
-        mainWindow.webContents.send('item:add', m.name, m.release_year, m.image);
+    //Load previous list
+    mov.sync();
+
+    // Insert Menu
+    Menu.setApplicationMenu(createMenu());
 }
 
+function createMenu() {
+    const menu = [
+        {
+            label: app.name,
+            submenu: [
+                {
+                    label: 'Clear Items',
+                    accelerator: isMac ? 'Alt+C' : 'Alt+C',
+                    click() {
+                        win.webContents.send('item:clear');
+                    }
+                },
+                {
+                    label: 'Quit',
+                    accelerator: isMac ? 'Command+Q' : 'Ctrl+Q',
+                    click() {
+                        app.quit();
+                    }
+                }
+            ]
+        }
+    ];
+    // Add developer tools item if not in prod
+    if (isDev) {
+        menu.push({
+            label: 'Developer Tools',
+            submenu: [{
+                label: 'Toggle DevTools',
+                accelerator: process.platform == 'darwin' ? 'Command+I' : 'Ctrl+I',
+                click(_, focusedWindow) {
+                    focusedWindow.toggleDevTools();
+                }
+            },
+            { role: 'reload' }]
+        });
+    }
+
+    return Menu.buildFromTemplate(menu);
+}
+
+// Listen for app to be ready
+app.whenReady().then(() => {
+    ipcMain.on('win:min', () => {
+        win.minimize()
+    })
+    
+    ipcMain.on('win:max', () => {
+        win.maximize()
+    })
+    
+    ipcMain.on('win:close', () => {
+        win.close()
+    })
+
+    createWindow()
+
+    app.on('activate', () => {
+        if (BrowserWindow.getAllWindows().length === 0) {
+          createWindow()
+        }
+      })
+})
+
+app.on('window-all-closed', () =>{
+    if(!isMac)
+        app.quit()
+})
+
+ipcMain.handle('mov:load', async function () {
+    let a = await mov.findAll({ attributes: ['name', 'release_year', 'image'] });
+    b = a.map((m) => ({name: m.dataValues.name, year: m.dataValues.release_year, image: m.dataValues.image}))
+    return b;
+})
+
 //Catch search:movie
-ipcMain.on('search:movie', async function (e, title) {
+ipcMain.handle('mov:search', async function (_, title) {
     try {
         const search = await movRet(title);
         if (search.Response == 'True') {
             let mv = search.Search[0];
-            mainWindow.webContents.send('item:add', mv.Title, mv.Year, mv.Poster);
             mov.create({ name: mv.Title, release_year: mv.Year, type: mv.Type, image: mv.Poster });
+            return {name: mv.Title, year: mv.Year, image: mv.Poster}
         } else
             console.log(`No movies found - ${title}`);
     }
     catch (error) {
         console.log(error.message);
     }
+    return undefined
 });
 
-ipcMain.on('item:remove', function (e, title, year) {
+ipcMain.on('mov:remove', function (e, title, year) {
     mov.destroy({ where: { name: title, release_year: year } });
 });
-
-//Catch item:add
-ipcMain.on('item:add', async function (e, item, year, image) {
-    mainWindow.webContents.send('item:add', item, year, image);
-});
-
-// Create menu template
-const mainMenuTemplate = [
-    {
-        label: 'File',
-        submenu: [
-            {
-                label: 'Clear Items',
-                accelerator: process.platform == 'darwin' ? 'Alt+C' : 'Alt+C',
-                click() {
-                    mainWindow.webContents.send('item:clear');
-                }
-            },
-            {
-                label: 'Quit',
-                accelerator: process.platform == 'darwin' ? 'Command+Q' : 'Ctrl+Q',
-                click() {
-                    app.quit();
-                }
-            }
-        ]
-    }
-];
-
-// If mac, add empty object to menu
-if (process.platform == 'darwin') {
-    mainMenuTemplate.unshift({});
-}
-
-// Add developer tools item if not in prod
-if (process.env.NODE_ENV !== 'production') {
-    mainMenuTemplate.push({
-        label: 'Developer Tools',
-        submenu: [{
-            label: 'Toggle DevTools',
-            accelerator: process.platform == 'darwin' ? 'Command+I' : 'Ctrl+I',
-            click(item, focusedWindow) {
-                focusedWindow.toggleDevTools();
-            }
-        },
-        {
-            role: 'reload'
-        }
-        ]
-    });
-}

@@ -1,11 +1,7 @@
-window.$ = window.jQuery = require('jquery');
-
-const { ipcRenderer, remote } = require('electron');
-
 const ul = document.querySelector('ul');
 
 // Add Movie
-ipcRenderer.on('item:add', function (e, item, year, image) {
+function addMovie(item, year, image) {
     ul.className = 'collection';
     let yearNode = document.querySelectorAll('.collection .collection-year');
 
@@ -24,7 +20,7 @@ ipcRenderer.on('item:add', function (e, item, year, image) {
         }
 
         const yearContainer = document.createElement('div');
-        yearContainer.className = `collection`;
+        yearContainer.className = 'collection';
 
         if (ele) {
             ul.insertBefore(yearElement, ele);
@@ -59,7 +55,7 @@ ipcRenderer.on('item:add', function (e, item, year, image) {
         yearsList.appendChild(movieElement);
 
     document.getElementById("empty").hidden = true;
-});
+};
 
 function yearInList(year) {
     let years = document.querySelectorAll('.collection .collection-year');
@@ -84,22 +80,24 @@ function itemInList(item, yearContainer) {
     return false;
 }
 
-// Clear Movies
-ipcRenderer.on('item:clear', function (e) {
-    ul.innerHTML = '';
-    ul.className = '';
+// // Clear Movies
+// ipcRenderer.on('item:clear', function (e) {
+//     ul.innerHTML = '';
+//     ul.className = '';
 
-    document.getElementById("empty").hidden = false;
-});
+//     document.getElementById("empty").hidden = false;
+// });
 
 // Remove Movie
 function addRemove(section) {
     section.addEventListener('dblclick', removeItem);
 }
 
-function removeItem(e) {
+async function removeItem(e) {
     let ele = e.target.parentNode.parentNode;
-    ipcRenderer.send('item:remove', e.target.innerText, ele.previousSibling.innerText);
+
+    await window.movieAPI.removeMovie(e.target.innerText, ele.previousSibling.innerText);
+
     e.target.parentElement.remove();
     if (ele.children.length == 0) {
         ele.previousSibling.remove();
@@ -143,10 +141,11 @@ function searchout() {
 };
 
 // Search
-document.getElementById("search-bar").addEventListener("submit", function (e) {
+document.getElementById("search-bar").addEventListener("submit", async function (e) {
     e.preventDefault();
-    const name = document.querySelector('#search').value;
-    ipcRenderer.send('search:movie', name);
+    const name = document.querySelector('#search').value
+    let mov = await window.movieAPI.searchMovie(name)
+    addMovie(mov.name, mov.year, mov.image)
 
     let search = document.getElementById("search");
     search.value = "";
@@ -168,24 +167,25 @@ document.onkeyup = (e) => {
     }
 }
 
-// Top Bar Buttons 
-function top_btns() {
-    var browWindow = remote.BrowserWindow;
 
-    document.getElementById("min-btn").addEventListener("click", function (e) {
-        browWindow.getFocusedWindow().minimize();
-    });
-
-    document.getElementById("max-btn").addEventListener("click", function (e) {
-        browWindow.getFocusedWindow().maximize();
-    });
-
-    document.getElementById("close-btn").addEventListener("click", function (e) {
-        browWindow.getFocusedWindow().close();
+async function loadMovies(){
+    let list = await window.movieAPI.getList();
+    list.forEach(element => {
+        addMovie(element.name, element.year, element.image)
     });
 }
 
-document.onreadystatechange = function () {
-    if (document.readyState == "complete")
-        top_btns();
-};
+// Top Bar Buttons 
+document.getElementById("min-btn").addEventListener('click', function () {
+    window.app.minimize();
+})
+
+document.getElementById("max-btn").addEventListener('click', function () {
+    window.app.maximize();
+})
+
+document.getElementById("close-btn").addEventListener('click', function () {
+    window.app.close();
+})
+
+loadMovies();
