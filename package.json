@@ -2,9 +2,10 @@
   "name": "movie-list",
   "version": "1.0.0",
   "description": "Movie List",
-  "main": "main.js",
+  "main": "./dist/index.js",
   "scripts": {
-    "start": "electron .",
+    "build": "tsc",
+    "start": "npm run build && electron .",
     "package-mac": "electron-packager . --overwrite --platform=darwin --arch=x64 --icon=assets/icons/mac/icon.icns --prune=true --out=release-builds",
     "package-win": "electron-packager . movie-list --overwrite --asar --platform=win32 --arch=ia32 --icon=assets/icons/win/icon.ico --prune=true --out=release-builds --version-string.CompanyName=CE --version-string.FileDescription=CE --version-string.ProductName=\"Electron Tutorial App\"",
     "package-linux": "electron-packager . movie-list --overwrite --asar --platform=linux --arch=x64 --icon=assets/icons/png/icon.png --prune=true --out=release-builds",
@@ -14,9 +15,9 @@
   "license": "ISC",
   "dependencies": {
     "dotenv": "^16.4.5",
-    "jquery": "^3.7.1",
     "sequelize": "^6.37.*",
     "sqlite3": "^5.1.*",
+    "typescript": "^5.4.5",
     "xmlhttprequest": "^1.8.0"
   },
   "devDependencies": {

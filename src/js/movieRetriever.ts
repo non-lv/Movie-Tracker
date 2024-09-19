@@ -1,8 +1,9 @@
-require('dotenv').config();
+import 'dotenv/config'
 const { XMLHttpRequest } = require('xmlhttprequest');
+export { }
 var apikey = process.env.apikey;
 
-async function getMovie(name) {
+async function getMovie(name: string) {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.addEventListener("load", () => {

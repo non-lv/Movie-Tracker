@@ -1,9 +1,9 @@
-const {contextBridge, ipcRenderer} = require('electron/renderer')
+import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('movieAPI', {
     getList: () => ipcRenderer.invoke('mov:load'),
-    searchMovie: (title) => ipcRenderer.invoke('mov:search', title),
-    removeMovie: (title, year) => ipcRenderer.send('mov:remove', title, year)
+    searchMovie: (title: string) => ipcRenderer.invoke('mov:search', title),
+    removeMovie: (title: string, year: number) => ipcRenderer.send('mov:remove', title, year)
 })
 
 contextBridge.exposeInMainWorld('app', {
